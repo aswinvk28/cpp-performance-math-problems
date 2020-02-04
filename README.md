@@ -9,3 +9,17 @@ The process of development is to maximise the accuracy of the model and as well 
 The Allen's Interval Algebra technique uses input probability distributions as a function of position and then finds the sum of limitting ratios of a statistical quantity.
 
 The process of development is to calculate the limitting ratio at each position, for which formula will be given, using a benchmark model developed in python.
+
+## Performance Optimization Explanation
+
+[https://github.com/nscalo/cpp-performance-samples](https://github.com/nscalo/cpp-performance-samples)
+
+You can use:
+
+    - Vectorization, or
+    
+    - Paralleization using Multithreading or multiprocessing, or
+
+    - MPI
+
+to minimise the time shown in the repository, without affecting the accuracy of the model
