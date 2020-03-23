@@ -10,7 +10,7 @@ The respository link for the benchmark model:
 
 
 
-![eqn-navier](./eqn-navier.png)
+![eqn-navier](./navier-stokes/eqn-navier.png)
 
 
 
@@ -29,7 +29,7 @@ You can use:
 
     - Vectorization, or
     
-    - Paralleization using Multithreading or multiprocessing, or
+    - Parallelization using Multithreading or multiprocessing, or
     
     - MPI
 
