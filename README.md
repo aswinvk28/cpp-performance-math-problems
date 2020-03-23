@@ -13,14 +13,6 @@ The respository link for the benchmark model:
 ![eqn-navier](./navier-stokes/eqn-navier.png)
 
 
-
-
-### Allen's Interval Algebra Sum of Limitting Ratios Model
-
-The Allen's Interval Algebra technique uses input probability distributions as a function of position and then finds the sum of limitting ratios of a statistical quantity.
-
-The process of development is to calculate the limitting ratio at each position, for which formula will be given, using a benchmark model developed in python.
-
 ## Performance Optimization Explanation
 
 [https://github.com/nscalo/cpp-performance-samples](https://github.com/nscalo/cpp-performance-samples)
