@@ -1,108 +1,168 @@
 #include "omp.h"
 #include "mkl.h"
 #include <iostream>
+#include <vector>
+#include <map>
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
 #include <string>
 #include <cstdlib>
+#include <string>
+#include "math.h"
 #include "worker.h"
 
-const int nTrials = 10;
-const int skipTrials = 3; // Skip first iteration as warm-up
+using namespace std;
 
-double Stats(double & x, double & dx) {
-  x  /= (double)(nTrials - skipTrials);
-  dx  = sqrt(dx/double(nTrials - skipTrials) - x*x);
+const int length = 100;
+const int skipIntervals = 3; // Skip first iteration as warm-up
+const float quantisation_factor = 3.487607467973763e-05;
+const double dt = 1e-3;
+const double dx = 1e-6;
+
+std::vector<std::string> __partition_names = {"lb","bl","fl","lf","rf","fr","br","rb"};
+const double __partition_size = 2 * M_PI / (sizeof(__partition_names) / sizeof(__partition_names[0]));
+
+double Stats(double & x, double & dx, const int nIntervals) {
+  x  /= (double)(nIntervals - skipIntervals);
+  dx  = sqrt(dx/double(nIntervals - skipIntervals) - x*x);
 }
 
-double Accuracy(double * u, const double a, const double b, int length) {
-  const double I0 = InverseDerivative(b) - InverseDerivative(a);
-  double error = 0.0;
-  double norm = 0.0;
-  for(int i = 0; i < length; i++) {
-    error += (u[i] - I0)*(u[i] - I0);
-    norm += (u[i] + I0)*(u[i] + I0);
+// return the complex arg
+double arg(double x, double y, double graddx, double graddy) {
+  return atan2(-1 * (y * graddx - x * graddy), x * graddx + y * graddy);
+}
+
+// provides tpcc result performed on temporal differences
+std::string tpcc_string(double angle1, double angle2) {
+  double anglediff = angle2 - angle1;
+  int partition = int( anglediff / __partition_size );
+  return __partition_names[partition];
+}
+
+// concordance of the estimated model, computational model 
+double ModelConcordance(double * u, double * grad, int length, 
+const int start_index, const int end_index, const int norm, 
+std::vector<int> vec, std::map<string, int> tpcc_map, const float graddx = 1.0f) {
+  double error = 0.0f;
+  double value = 0.0f;
+  double numerator = 0.0f;
+  double denominator = 0.0f;
+  var index1;
+  var index2;
+  for(int i = start_index; i < end_index; i++) {
+    index1 = loop_index((var) i, dx, length);
+    index2 = loop_index((var) (i+1), dx, length);
+    numerator = std::pow(grad[i] * graddx, norm);
+    denominator = std::pow(u[i], norm);
+    error += numerator;
+    value += denominator;
+    if (denominator <= std::pow(quantisation_factor, norm) && grad > 0) {
+      vec[0] += 1;
+    } else {
+      vec[1] += 1;
+    }
+    double angle1 = arg((double) index1, u[i], dx, grad[i] + (grad[i+1] - grad[i]) * dx * length);
+    double angle2 = arg((double) index2, u[i+1], dx, grad[i+1]);
+    std::string tpcc = tpcc_string(angle1, angle2);
+    tpcc_map[tpcc] += 1;
   }
-  return error/norm;
+  return error/value;
 }
 
+// precision of the model in design
+double ModelPrecision(double * u, double * model) {
+  double precision = 0.0;
+  for(int i = 0; i < length; i++) {
+    precision += abs(model[i] - u[i]);
+  }
+  return precision;
+}
+
+// // precision of the model in design
+double ResidualError(double * u, int length, 
+const int start_index, const int end_index, const int norm) {
+  double error = u[end_index] - u[start_index];
+  double value = (u[end_index] + u[start_index]) / 2;
+  return error/value;
+}
+
+// ./app 20000 100000
 int main(int argc, char** argv) {
 
-    int length = 100;
+    const int nIntervals = 1 << stoi(argv[1]);
+    const int n = 1 << stoi(argv[2]);
 
-    double dt = 1e-6;
-    double dx = 1e-3;
+    if ( (int) (length / nIntervals) == 0 ) {
+      printf("The length is defined to be 100 and thus cannot exceed 50");
+      exit(0);
+    }
 
-    double p = 0.02614316; // probability of movement
-    double alpha = 1.5878459; // normalization parameter for probability of movement
+    const double p = 0.02614316; // probability of movement
+    const double alpha = 1.5878459; // normalization parameter for probability of movement
 
     double u0 = 0.26612195; // initial velocity during the analysis of the unit length segment
 
-    // the velocity scale used for computing the flow model
-    const double x[] = {
-        0.0, 0.01, 0.02, 0.03, 0.04,
-        0.05, 0.05999999, 0.06999999, 0.07999999, 0.08999999,
-        0.09999999, 0.10999998, 0.11999998, 0.12999998, 0.13999999,
-        0.14999999, 0.16, 0.17, 0.18, 0.19000001,
-        0.20000002, 0.21000002, 0.22000003, 0.23000003, 0.24000004,
-        0.25000003, 0.26000002, 0.27, 0.28, 0.29,
-        0.29999998, 0.30999997, 0.31999996, 0.32999995, 0.33999994,
-        0.34999993, 0.35999992, 0.36999992, 0.3799999, 0.3899999,
-        0.3999999, 0.40999988, 0.41999987, 0.42999986, 0.43999985,
-        0.44999984, 0.45999983, 0.46999982, 0.4799998, 0.4899998,
-        0.4999998, 0.5099998, 0.5199998, 0.5299998, 0.5399998,
-        0.5499998, 0.55999976, 0.56999975, 0.57999974, 0.58999974,
-        0.5999997, 0.6099997, 0.6199997, 0.6299997, 0.6399997,
-        0.6499997, 0.65999967, 0.66999966, 0.67999965, 0.68999964,
-        0.69999963, 0.7099996, 0.7199996, 0.7299996, 0.7399996,
-        0.7499996, 0.7599996, 0.76999956, 0.77999955, 0.78999954,
-        0.79999954, 0.8099995,0.8199995, 0.8299995, 0.8399995,
-        0.8499995, 0.8599995, 0.86999947, 0.87999946, 0.88999945,
-        0.89999944, 0.90999943, 0.9199994, 0.9299994, 0.9399994,
-        0.9499994, 0.9599994, 0.9699994, 0.97999936, 0.98999935
-    };
-
-    double * u = (double *) malloc(sizeof(double)*(length-1));
-
-    const int n = 1000*100;
+    double * u = (double *) malloc(sizeof(double)*length);
+    double * model = (double *) malloc(sizeof(double)*length);
 
     printf("\n\033[1mNumerical integration with n=%d\033[0m\n", n);
-    printf("\033[1m%5s %15s %15s %15s\033[0m\n", "Step", "Time, ms", "GSteps/s", "Accuracy"); fflush(stdout);
+    printf("\033[1m%5s %15s %15s %15s\033[0m\n", "Step", "Time, ms", "GSteps/s", "Concordance", 
+    "Stationary mode(s)", "Moving mode(s)", __partition_names[0], 
+    __partition_names[1], __partition_names[2], __partition_names[3], 
+    __partition_names[4], __partition_names[5], __partition_names[6]);
+    fflush(stdout);
 
     double time, dtime, f, df, * grad;
 
-    for (int iTrial = 1; iTrial <= nTrials; iTrial++) {
+    for (int iInterval = 1; iInterval <= nIntervals; iInterval++) {
 
-        const double a = double(iTrial - 1);
-        const double b = double(iTrial + 1);
-    
+        const double a = double(iInterval - 1);
+        const double b = double(iInterval + 1);
+
         const double t0 = omp_get_wtime();
-        grad = navier_stokes_ref(u, x, u0, dt, dx, p, alpha, length);
+        grad = navier_stokes_ref(&u[0], u0, dt, dx, p, alpha, length, &model[0]);
         const double t1 = omp_get_wtime();
 
         const double ts   = t1-t0; // time in seconds
         const double tms  = ts*1.0e3; // time in milliseconds
         const double fpps = double(n)*1e-9/ts; // performance in steps/s
 
-        if (iTrial > skipTrials) { // Collect statistics
+        if (iInterval > skipIntervals) { // Collect statistics
             time  += tms; 
             dtime += tms*tms;
             f  += fpps;
             df += fpps*fpps;
         }
 
-        const double acc = Accuracy(u, a, b, length);
+        const int start_index = (int) a * length / nIntervals;
+        const int end_index = (int) (b-1) * length / nIntervals - 1;
+        std::vector<int> vec = {0,0};
+        std::map<string, int> tpcc_map;
+
+        for (int p = 0; p < __partition_names.size(); p++) {
+          tpcc_map[__partition_names[p]] = 0;
+        }
+
+        const double concordance = ModelConcordance(u, grad, length, 
+        start_index, end_index, 1, vec, tpcc_map);
+
+        const double precision = ModelPrecision(u, &model[0]);
+        const double residual = ResidualError(u, length, start_index, end_index, 1);
 
         // Output performance
-        printf("%5d %15.3f %15.3f %15.3e%s\n", 
-        iTrial, tms, fpps, acc, (iTrial<=skipTrials?"*":""));
+        printf("%5d %15.3f %15.8f %15.8f %d %d %s %s %s %s %s %s %s %s %15.3f %15.8f %15.8e%s\n", 
+        iInterval, tms, fpps, concordance, vec[0], vec[1], tpcc_map[__partition_names[0]], 
+        tpcc_map[__partition_names[1]], tpcc_map[__partition_names[2]], 
+        tpcc_map[__partition_names[3]], tpcc_map[__partition_names[4]], 
+        tpcc_map[__partition_names[5]], tpcc_map[__partition_names[6]], 
+        tpcc_map[__partition_names[7]], precision, residual,
+        (iInterval<=skipIntervals?"*":""));
         fflush(stdout);
-
     }
 
-    Stats(time, dtime);
-    Stats(f, df);
+    Stats(time, dtime, nIntervals);
+    Stats(f, df, nIntervals);
     printf("-----------------------------------------------------\n");
     printf("\033[1m%s\033[0m\n%8s   \033[42m%8.1f+-%.1f\033[0m   \033[42m%8.1f+-%.1f\033[0m\n",
         "Average performance:", "", time, dtime, f, df);

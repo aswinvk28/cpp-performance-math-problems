@@ -1,0 +1,6 @@
+build/
+.vscode/
+.ipynb_checkpoints/
+*.npy
+*.ipynb
+navier-stokes/build/

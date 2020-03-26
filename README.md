@@ -8,10 +8,7 @@ The respository link for the benchmark model:
 
 [https://github.com/aswinvk28/cpp-performance-math-problems-benchmark](https://github.com/aswinvk28/cpp-performance-math-problems-benchmark)
 
-
-
 ![eqn-navier](./navier-stokes/eqn-navier.png)
-
 
 ## Performance Optimization Explanation
 
@@ -26,3 +23,23 @@ You can use:
     - MPI
 
 to minimise the time shown in the repository, without affecting the accuracy of the model
+
+## Accuracy Measurement
+
+[Error to Norm Ratio Explained](http://www.math.pitt.edu/~sussmanm/2071Spring08/lab05/index.html#TypesOfErrors)
+
+The Ratio of change of a value `Δx` to the value `x` is termed as: **relative solution error**
+
+```markdown
+
+( relative solution error )         = || (Δx) || / || x ||
+
+```
+
+```markdown
+
+( condition number )
+
+                        k₂(A)       = || A ||₂ || A ||⁻¹
+
+```

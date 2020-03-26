@@ -7,7 +7,8 @@ const float series_end = 2.0;
 const float series_start = 0.0;
 const float units_end = 1.0;
 const float units_start = 0.0;
-const float prob = 0.0f;
+const float prob = 0.01f;
+const float dim_constant = 0.01f;
 
 // the units per cell scale used for computing navier-stokes
 const double units[] = {
@@ -37,26 +38,33 @@ const double units[] = {
        1.28690630e-01, 1.33143842e-01, 1.36612982e-01, 1.39664695e-01,
        1.43197343e-01, 1.46461710e-01, 1.11266039e-01, 1.00000000e+00
 };
-
-double velocity_computed(double u0, double x, double p, double alpha, int length) {
+var loop_index(var v, const double dx, int length) {
+    return v * dx * length / (length-2);
+}
+var velocity_computed(double u0, var x, double p, double alpha, int length) {
     return u0 - x * p / alpha * length;
 }
-double * navier_stokes_ref(double * u, const double * x, double u0, 
+double * navier_stokes_ref(double * u, double u0, 
 const double dt, const double dx, 
-const double p, const double alpha, int length) {
+const double p, const double alpha, int length, double * model) {
     double * grad = (double *) malloc(sizeof(double) * length);
-    double diff = 0.0;
-    double vi = 0.0;
-    double qty = 0.0;
+    var diff = 0.0;
+    var vi = 0.0;
+    var qty = 0.0;
+    var v0 = u0;
     var t;
-    for (int i = 0; i < length - 1; i++) {
-        vi = velocity_computed(u0, x[i], p, alpha, length);
-        t = (var) series_start + i * ( series_end - series_start ) / length;
-        grad[i] = estimated_gradient(t, x[i], length, prob, );
-        diff = vi - u0;
-        qty = diff/dt - u0 * diff/dx; // force
-        u0 = vi;
-        u[i] = qty;
+    double estimate;
+    for (int i = 0; i < length; i++) {
+        var index = loop_index((var) i, dx, length);
+        vi = velocity_computed(u0, index, p, alpha, length);
+        t = (series_start + i * ( series_end - series_start ) / (length-1));
+        grad[i] = estimated_gradient(t, index, length, prob, dim_constant, dt, dx, estimate);
+        diff = (vi - v0) * units[i];
+        qty = diff/dt - v0 * diff/dx; // force
+        v0 = vi;
+        u[i] = (double) qty;
+        model[i] = estimate;
+        printf("grad value: %15.8f\n", grad[i]);
     }
-    return grad;
+    return &grad[1];
 }

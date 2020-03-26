@@ -1,1 +1,0 @@
-/usr/bin/c++    -rdynamic CMakeFiles/app.dir/main.cc.o  -o app  -L/home/aswin/anaconda3/envs/enscalo_test/lib -Wl,-rpath,/home/aswin/anaconda3/envs/enscalo_test/lib -lmkl_core -lmkl 

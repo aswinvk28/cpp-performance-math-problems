@@ -8,11 +8,11 @@ include(GNUInstallDirs)
 
 # autodiff requires a c++17 enabled compiler
 set(CMAKE_CXX_STANDARD 17)
-set(LIB_DIR /home/aswin/anaconda3/envs/enscalo_test/lib/)
+set(LIB_DIR /home/aswin/anaconda3/envs/enscalo_test/lib/ /usr/lib/x86_64-linux-gnu/)
 
 set(LIB 
     -lmkl_core 
-    -lmkl
+    -lomp
 )
 set(INC_DIR 
     /usr/include
@@ -21,6 +21,7 @@ set(INC_DIR
 include_directories (${CMAKE_CURRENT_SOURCE_DIR}/../autodiff ${INC_DIR})
 link_directories( ${LIB_DIR} )
 
-add_executable ( ${TARGET_NAME} main.cc )
+set (CMAKE_CXX_FLAGS "-fopenmp")
+
+add_executable ( ${TARGET_NAME} main.cc worker.cc series.cc )
 target_link_libraries(${TARGET_NAME} ${LIB})
-# target_include_directories(${TARGET_NAME} ${INC_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/../autodiff)
