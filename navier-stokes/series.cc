@@ -29,8 +29,6 @@ const float dim_constant, double dt, double dx, double &estimate) {
     var tsgrad = power_series(t);
     var u = estimated(lx, tsgrad, length, prob, dim_constant, dt, dx);  // the output variable u
     estimate = (double) u;
-    // std::tuple w = autodiff::forward::wrt(lx, tsgrad);
-    // const autodiff::reverse::Wrt<var, var> args{w};
     auto [u1, u2] = derivatives(u, wrt(lx, tsgrad)); // evaluate the derivative of u with respect to x
     return (double) (u1 + u2);
 }

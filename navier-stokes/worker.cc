@@ -9,6 +9,7 @@ const float units_end = 1.0;
 const float units_start = 0.0;
 const float prob = 0.01f;
 const float dim_constant = 0.01f;
+const int calibrated_length = 100;
 
 // the units per cell scale used for computing navier-stokes
 const double units[] = {
@@ -39,7 +40,7 @@ const double units[] = {
        1.43197343e-01, 1.46461710e-01, 1.11266039e-01, 1.00000000e+00
 };
 var loop_index(var v, const double dx, int length) {
-    return v * dx * length / (length-2);
+    return v * dx * calibrated_length/length * calibrated_length / (calibrated_length-2);
 }
 var velocity_computed(double u0, var x, double p, double alpha, int length) {
     return u0 - x * p / alpha * length;
@@ -64,7 +65,6 @@ const double p, const double alpha, int length, double * model) {
         v0 = vi;
         u[i] = (double) qty;
         model[i] = estimate;
-        printf("grad value: %15.8f\n", grad[i]);
     }
     return &grad[1];
 }

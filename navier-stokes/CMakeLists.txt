@@ -6,6 +6,11 @@ set(TARGET_NAME app)
 # Include the cmake variables with values for installation directories
 include(GNUInstallDirs)
 
+list(APPEND SOURCES
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/src/basic.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/src/cmdparser.cpp
+)
+
 # autodiff requires a c++17 enabled compiler
 set(CMAKE_CXX_STANDARD 17)
 set(LIB_DIR /home/aswin/anaconda3/envs/enscalo_test/lib/ /usr/lib/x86_64-linux-gnu/)
@@ -15,13 +20,15 @@ set(LIB
     -lomp
 )
 set(INC_DIR 
+    ${CMAKE_CURRENT_SOURCE_DIR}
     /usr/include
     /opt/intel/compilers_and_libraries_2020.0.166/linux/mkl/include/
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/
 )
 include_directories (${CMAKE_CURRENT_SOURCE_DIR}/../autodiff ${INC_DIR})
 link_directories( ${LIB_DIR} )
 
 set (CMAKE_CXX_FLAGS "-fopenmp")
 
-add_executable ( ${TARGET_NAME} main.cc worker.cc series.cc )
+add_executable ( ${TARGET_NAME} main.cc worker.cc series.cc ${SOURCES} )
 target_link_libraries(${TARGET_NAME} ${LIB})

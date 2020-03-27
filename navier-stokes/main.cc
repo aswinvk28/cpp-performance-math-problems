@@ -2,6 +2,7 @@
 #include "mkl.h"
 #include <iostream>
 #include <vector>
+#include <array>
 #include <map>
 #include <cmath>
 #include <cstdio>
@@ -12,16 +13,21 @@
 #include "math.h"
 #include "worker.h"
 
+#include "intel/vx_samples/cmdparser.hpp"
+
 using namespace std;
 
-const int length = 100;
+int length = 100;
 const int skipIntervals = 3; // Skip first iteration as warm-up
-const float quantisation_factor = 3.487607467973763e-05;
+const double quantisation_factor = 3.487607467973763e-05; // est.max() * 2/3
 const double dt = 1e-3;
 const double dx = 1e-6;
 
-std::vector<std::string> __partition_names = {"lb","bl","fl","lf","rf","fr","br","rb"};
-const double __partition_size = 2 * M_PI / (sizeof(__partition_names) / sizeof(__partition_names[0]));
+const std::array<std::string,8> __partition_names = {
+  string("lb"),string("bl"),string("fl"),string("lf"),
+  string("rf"),string("fr"),string("br"),string("rb")
+};
+const double __partition_size = 2 * M_PI / __partition_names.size();
 
 double Stats(double & x, double & dx, const int nIntervals) {
   x  /= (double)(nIntervals - skipIntervals);
@@ -36,14 +42,14 @@ double arg(double x, double y, double graddx, double graddy) {
 // provides tpcc result performed on temporal differences
 std::string tpcc_string(double angle1, double angle2) {
   double anglediff = angle2 - angle1;
-  int partition = int( anglediff / __partition_size );
+  int partition = (int) floor( anglediff / __partition_size ) + 4;
   return __partition_names[partition];
 }
 
 // concordance of the estimated model, computational model 
 double ModelConcordance(double * u, double * grad, int length, 
 const int start_index, const int end_index, const int norm, 
-std::vector<int> vec, std::map<string, int> tpcc_map, const float graddx = 1.0f) {
+std::vector<int>& vec, std::map<string, int>& tpcc_map, const float graddx = 1.0f) {
   double error = 0.0f;
   double value = 0.0f;
   double numerator = 0.0f;
@@ -57,7 +63,7 @@ std::vector<int> vec, std::map<string, int> tpcc_map, const float graddx = 1.0f)
     denominator = std::pow(u[i], norm);
     error += numerator;
     value += denominator;
-    if (denominator <= std::pow(quantisation_factor, norm) && grad > 0) {
+    if ((denominator <= std::pow(quantisation_factor, norm)) && grad > 0) {
       vec[0] += 1;
     } else {
       vec[1] += 1;
@@ -73,28 +79,59 @@ std::vector<int> vec, std::map<string, int> tpcc_map, const float graddx = 1.0f)
 // precision of the model in design
 double ModelPrecision(double * u, double * model) {
   double precision = 0.0;
-  for(int i = 0; i < length; i++) {
-    precision += abs(model[i] - u[i]);
+  for(int i = 1; i < length; i++) {
+    precision += abs(model[i] - u[i]) / abs(model[i]);
   }
-  return precision;
+  return 1.0 - precision / length;
 }
 
-// // precision of the model in design
+// resuidual error of the model in design with norm-2
 double ResidualError(double * u, int length, 
 const int start_index, const int end_index, const int norm) {
-  double error = u[end_index] - u[start_index];
-  double value = (u[end_index] + u[start_index]) / 2;
-  return error/value;
+  double sum = 0.0;
+  for(int i = start_index; i < end_index-1; i++) {
+    double error = std::pow(u[i+1] - u[i], norm);
+    double value = std::pow((u[i+1] + u[i]) / 2, norm);
+    sum += error/value;
+  }
+  return sum;
 }
 
 // ./app 20000 100000
-int main(int argc, char** argv) {
+int main(int argc, const char** argv) {
 
-    const int nIntervals = 1 << stoi(argv[1]);
-    const int n = 1 << stoi(argv[2]);
+    CmdParserWithHelp   cmd( argc, argv);
+    CmdOption<int>   intervals(
+        cmd,
+        'intervals',
+        "intervals",
+        "",
+        "Number of intervals as 2^{--intervals}",
+        8
+    );
+    CmdOption<int>   num(
+        cmd,
+        'iterations',
+        "iterations",
+        "",
+        "Number of iterations as 2^{--iterations} which must be gtreater than calibrated_length = 100",
+        10
+    );
+    cmd.parse();
+
+    const int nIntervals = 1 << intervals;
+    const int n = 1 << num;
+
+    // rescale length parameter from the input number of iterations
+    length = n;
+
+    if(length < 100) {
+      printf("The calibrated_length is defined to be 100 and thus cannot be lesser than 100...\n");
+      exit(0);
+    }
 
     if ( (int) (length / nIntervals) == 0 ) {
-      printf("The length is defined to be 100 and thus cannot exceed 50");
+      printf("The calibrated_length is defined to be 100 and thus cannot exceed 50...\n");
       exit(0);
     }
 
@@ -106,11 +143,14 @@ int main(int argc, char** argv) {
     double * u = (double *) malloc(sizeof(double)*length);
     double * model = (double *) malloc(sizeof(double)*length);
 
-    printf("\n\033[1mNumerical integration with n=%d\033[0m\n", n);
-    printf("\033[1m%5s %15s %15s %15s\033[0m\n", "Step", "Time, ms", "GSteps/s", "Concordance", 
-    "Stationary mode(s)", "Moving mode(s)", __partition_names[0], 
-    __partition_names[1], __partition_names[2], __partition_names[3], 
-    __partition_names[4], __partition_names[5], __partition_names[6]);
+    printf("\n\033[1mInterval parameters with nIntervals=%d\033[0m\n", nIntervals);
+    printf("\033[1m%5s %15s %15s %15s %15s %15s \t %2s  %2s  %2s  %2s  %2s  %2s  %2s  %2s %15s %15s\n", 
+    "Step", "Time, ms", "GSteps/s", "Concordance", "Stationary mode(s)", "Moving mode(s)", 
+    __partition_names[0].c_str(),__partition_names[1].c_str(),
+    __partition_names[2].c_str(),__partition_names[3].c_str(),
+    __partition_names[4].c_str(),__partition_names[5].c_str(),
+    __partition_names[6].c_str(),__partition_names[7].c_str(), 
+    "Precision", "Residual");
     fflush(stdout);
 
     double time, dtime, f, df, * grad;
@@ -137,7 +177,7 @@ int main(int argc, char** argv) {
 
         const int start_index = (int) a * length / nIntervals;
         const int end_index = (int) (b-1) * length / nIntervals - 1;
-        std::vector<int> vec = {0,0};
+        std::vector<int> vec (2,0);
         std::map<string, int> tpcc_map;
 
         for (int p = 0; p < __partition_names.size(); p++) {
@@ -148,16 +188,17 @@ int main(int argc, char** argv) {
         start_index, end_index, 1, vec, tpcc_map);
 
         const double precision = ModelPrecision(u, &model[0]);
-        const double residual = ResidualError(u, length, start_index, end_index, 1);
+        // residual error calculated with norm-2 similar to condition number for 1 dimensional data
+        const double residual = ResidualError(u, length, start_index, end_index, 2);
 
         // Output performance
-        printf("%5d %15.3f %15.8f %15.8f %d %d %s %s %s %s %s %s %s %s %15.3f %15.8f %15.8e%s\n", 
-        iInterval, tms, fpps, concordance, vec[0], vec[1], tpcc_map[__partition_names[0]], 
+        printf("%5d %15.3f %15.8f %15.8e%s %15d %15d \t\t %d   %d   %d   %d   %d   %d   %d   %d %15.8f %15.8f\n", 
+        iInterval, tms, fpps, (iInterval<=skipIntervals?"*":"+"), 
+        concordance, vec[0], vec[1], tpcc_map[__partition_names[0]], 
         tpcc_map[__partition_names[1]], tpcc_map[__partition_names[2]], 
         tpcc_map[__partition_names[3]], tpcc_map[__partition_names[4]], 
         tpcc_map[__partition_names[5]], tpcc_map[__partition_names[6]], 
-        tpcc_map[__partition_names[7]], precision, residual,
-        (iInterval<=skipIntervals?"*":""));
+        tpcc_map[__partition_names[7]], precision, residual);
         fflush(stdout);
     }
 
