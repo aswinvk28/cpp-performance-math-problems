@@ -2,6 +2,10 @@
 #include "mkl.h"
 #include <iostream>
 #include <vector>
+#include <numeric>
+#include <functional>
+#include <valarray>
+#include <algorithm>
 #include <array>
 #include <map>
 #include <cmath>
@@ -19,7 +23,7 @@ using namespace std;
 
 int length = 100;
 const int skipIntervals = 3; // Skip first iteration as warm-up
-const double quantisation_factor = 3.487607467973763e-05; // est.max() * 2/3
+double quantisation_factor = 3.487607467973763e-05; // est.max() * 2/3
 const double dt = 1e-3;
 const double dx = 1e-6;
 
@@ -46,9 +50,9 @@ std::string tpcc_string(double angle1, double angle2) {
   return __partition_names[partition];
 }
 
-// concordance of the estimated model, computational model 
+// concordance of the estimated model, computational model using intervals to determine the tpcc
 double ModelConcordance(double * u, double * grad, int length, 
-const int start_index, const int end_index, const int norm, 
+const int start_index, const int end_index, const int norm, const int dx, 
 std::vector<int>& vec, std::map<string, int>& tpcc_map, const float graddx = 1.0f) {
   double error = 0.0f;
   double value = 0.0f;
@@ -68,7 +72,7 @@ std::vector<int>& vec, std::map<string, int>& tpcc_map, const float graddx = 1.0
     } else {
       vec[1] += 1;
     }
-    double angle1 = arg((double) index1, u[i], dx, grad[i] + (grad[i+1] - grad[i]) * dx * length);
+    double angle1 = arg((double) index1, u[i], dx, grad[i] + (grad[i+1] - grad[i]) * dx * calibrated_length);
     double angle2 = arg((double) index2, u[i+1], dx, grad[i+1]);
     std::string tpcc = tpcc_string(angle1, angle2);
     tpcc_map[tpcc] += 1;
@@ -76,16 +80,30 @@ std::vector<int>& vec, std::map<string, int>& tpcc_map, const float graddx = 1.0
   return error/value;
 }
 
-// precision of the model in design
-double ModelPrecision(double * u, double * model) {
-  double precision = 0.0;
+// error precision of the model in design
+std::vector<double> ModelPrecision(double * u, double * model) {
+  std::vector<double> precision(length,0);
   for(int i = 1; i < length; i++) {
-    precision += abs(model[i] - u[i]) / abs(model[i]);
+    precision[i] = abs(model[i] - u[i]) / abs(model[i]); // probability of failure
   }
-  return 1.0 - precision / length;
+  return precision;
 }
 
-// resuidual error of the model in design with norm-2
+// reliability of the model in failure mode for Scaling 
+std::valarray<double> ModelReliability(std::vector<double> precision, int N) {
+  std::vector<double> additive(precision.size(),-1.0);
+  std::transform (precision.begin(), precision.end(), additive.begin(), precision.begin(), std::minus<double>());
+  std::valarray<double> values(precision.begin(), precision.end());
+  auto power = [](int N) {
+    return [=](double x) {
+      return pow(x,N);
+    }
+  }
+  std::valarray<double> values = values.apply(power(N));
+  return values;
+}
+
+// residual error of the model in design with norm-2
 double ResidualError(double * u, int length, 
 const int start_index, const int end_index, const int norm) {
   double sum = 0.0;
@@ -97,7 +115,7 @@ const int start_index, const int end_index, const int norm) {
   return sum;
 }
 
-// ./app 20000 100000
+// ./app --intervals 2 --iterations 7 --quantisation_factor 0.6 --condition_factor 2
 int main(int argc, const char** argv) {
 
     CmdParserWithHelp   cmd( argc, argv);
@@ -115,12 +133,38 @@ int main(int argc, const char** argv) {
         "iterations",
         "",
         "Number of iterations as 2^{--iterations} which must be gtreater than calibrated_length = 100",
-        10
+        -1
+    );
+    CmdOption<double>   qf(
+        cmd,
+        'quantisation_factor',
+        "quantisation_factor",
+        "",
+        "Quantisation Factor input",
+        -1.0
+    );
+    CmdOption<int>   condition(
+        cmd,
+        'condition_factor',
+        "condition_factor",
+        "",
+        "Condition Number Factor as power",
+        2
     );
     cmd.parse();
 
     const int nIntervals = 1 << intervals;
-    const int n = 1 << num;
+    const int n;
+
+    if (num == -1) {
+      n = length;
+    } else {
+      n = 1 << num;
+    }
+
+    if (qf > 0) {
+      quantisation_factor = qf;
+    }
 
     // rescale length parameter from the input number of iterations
     length = n;
@@ -150,7 +194,7 @@ int main(int argc, const char** argv) {
     __partition_names[2].c_str(),__partition_names[3].c_str(),
     __partition_names[4].c_str(),__partition_names[5].c_str(),
     __partition_names[6].c_str(),__partition_names[7].c_str(), 
-    "Precision", "Residual");
+    "Precision", "Residual", "Raliability");
     fflush(stdout);
 
     double time, dtime, f, df, * grad;
@@ -187,18 +231,22 @@ int main(int argc, const char** argv) {
         const double concordance = ModelConcordance(u, grad, length, 
         start_index, end_index, 1, vec, tpcc_map);
 
-        const double precision = ModelPrecision(u, &model[0]);
+        std::vector<double> precision = ModelPrecision(u, &model[0]);
+        double precision_sum = std::reduce(std::execution::par, precision.begin(), precision.end());
         // residual error calculated with norm-2 similar to condition number for 1 dimensional data
-        const double residual = ResidualError(u, length, start_index, end_index, 2);
+        const double residual = ResidualError(u, length, start_index, end_index, condition);
+
+        std::valarray<double> reliability = ModelReliability(precision, (int) length / calibrated_length);
+        double reliability_sum = std::reduce(std::execution::par, reliability.begin(), reliability.end());
 
         // Output performance
-        printf("%5d %15.3f %15.8f %15.8e%s %15d %15d \t\t %d   %d   %d   %d   %d   %d   %d   %d %15.8f %15.8f\n", 
+        printf("%5d %15.3f %15.8f %15.8e%s %15d %15d \t\t %d   %d   %d   %d   %d   %d   %d   %d %15.8f %15.8f %15.8f\n", 
         iInterval, tms, fpps, (iInterval<=skipIntervals?"*":"+"), 
         concordance, vec[0], vec[1], tpcc_map[__partition_names[0]], 
         tpcc_map[__partition_names[1]], tpcc_map[__partition_names[2]], 
         tpcc_map[__partition_names[3]], tpcc_map[__partition_names[4]], 
         tpcc_map[__partition_names[5]], tpcc_map[__partition_names[6]], 
-        tpcc_map[__partition_names[7]], precision, residual);
+        tpcc_map[__partition_names[7]], precision_sum, residual, reliability_sum);
         fflush(stdout);
     }
 

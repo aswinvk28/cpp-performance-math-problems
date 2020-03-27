@@ -17,6 +17,6 @@ var time_series(var t);
 var time_series_gradient(var t);
 
 var estimated(var lx, var tsgrad, int length, const float p, 
-const float dim_constant, double dt, double dx);
+const float dim_constant, double dt);
 double estimated_gradient(var t, var lx, int length, const float prob, 
-const float dim_constant, double dt, double dx, double &estimated);
+const float dim_constant, double dt, double &estimated);
