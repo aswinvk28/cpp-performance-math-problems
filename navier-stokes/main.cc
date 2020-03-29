@@ -84,20 +84,20 @@ std::vector<int>& vec, std::map<string, int>& tpcc_map, const float graddx = 1.0
 std::vector<double> ModelPrecision(double * u, double * model, const int start_index = 0, const int end_index = 0) {
   int start = start_index ? start_index : 1;
   int end = end_index ? end_index-1 : length-1;
-  std::vector<double> precision(end-start+1,0);
+  std::vector<double> precision(end-start+1,0.0);
   for(int i = start; i < end; i++) {
-    precision[i-start] = abs(model[i] - u[i]) / abs(model[i]); // probability of failure
+    precision[i-start] = abs(model[i] - u[i]);
   }
   return precision;
 }
 
 // reliability of the model in failure mode for Scaling 
-std::vector<double> ModelReliability(std::vector<double> precision, int N, const int start_index = 0, const int end_index = 0) {
+std::vector<double> ModelReliability(double * model, std::vector<double> precision, int N, const int start_index = 0, const int end_index = 0) {
   int start = start_index ? start_index : 1;
   int end = end_index ? end_index-1 : length-1;
   #pragma omp simd
   for(int i = start; i < end; i++) {
-    precision[i-start] = (1 - precision[i-start]);
+    precision[i-start] = (1 - precision[i-start]/model[i]); // probability of failure
   }
   std::for_each(precision.begin(), precision.end(), [N](double &x){ x = pow(x,N); });
   return precision;
@@ -238,11 +238,11 @@ int main(int argc, const char** argv) {
         // residual error calculated with norm-2 similar to condition number for 1 dimensional data
         const double residual = ResidualError(u, length, start_index, end_index, condition.getValue());
 
-        reliability = ModelReliability(precision, int(length / calibrated_length), start_index, end_index);
+        reliability = ModelReliability(&model[0], precision, int(length / calibrated_length), start_index, end_index);
         reliability_sum = std::accumulate(reliability.begin(), reliability.end(), 0);
 
         // Output performance
-        printf("%5d %15.3f %15.8f%s %15.8f %15d %15d \t\t %d   %d   %d   %d   %d   %d   %d   %d %15.8f %15.8f %15.8f\n", 
+        printf("%5d %15.3f %15.8f%s %15.8f %15d %15d \t\t %d   %d   %d   %d   %d   %d   %d   %d %15.12f %15.12f %15.12f\n", 
         iInterval, tms, fpps, (iInterval<=skipIntervals?"*":"+"), 
         concordance, vec[0], vec[1], tpcc_map[__partition_names[0]], 
         tpcc_map[__partition_names[1]], tpcc_map[__partition_names[2]], 
@@ -256,7 +256,7 @@ int main(int argc, const char** argv) {
 
     precision = ModelPrecision(u, &model[0]);
     precision_sum = std::accumulate(precision.begin(), precision.end(), 0);
-    reliability = ModelReliability(precision, int(length / calibrated_length));
+    reliability = ModelReliability(&model[0], precision, int(length / calibrated_length));
     reliability_sum = std::accumulate(reliability.begin(), reliability.end(), 0);
 
     printf("Precision: %15.12f\n", precision_sum/(precision.size()-2));
