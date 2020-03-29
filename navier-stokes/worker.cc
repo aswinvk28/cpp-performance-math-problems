@@ -38,10 +38,10 @@ const double units[] = {
        1.28690630e-01, 1.33143842e-01, 1.36612982e-01, 1.39664695e-01,
        1.43197343e-01, 1.46461710e-01, 1.11266039e-01, 1.00000000e+00
 };
-var units_computed(double * units, int length, int i) {
-    // interpolating the units gradient using spline interpolation
-    double fragment_length = length / calibrated_length;
-    double spline_l = ( i % fragment_length ) / fragment_length;
+// interpolating the units gradient using spline interpolation
+double units_computed(const double * units, int length, int i) {
+    double fragment_length = double(length) / calibrated_length;
+    double spline_l = double(i - int(i/fragment_length)*fragment_length) / fragment_length;
     double spline_r = 1 - spline_l;
     return (spline_l * units[1] + spline_r * units[0]) / 1;
 }
@@ -53,17 +53,12 @@ var loop_index(var v, const double dx, int length) {
 var velocity_computed(double u0, var x, double p, double alpha, int length) {
     return u0 - x * p / alpha * length;
 }
-// gradient of velocity computed using autodiff reverse
-double velocity_gradient(var vi) {
-    auto [vigrad] = derivatives(vi); // evaluate the derivative of u with respect to x
-    return (double) vigrad;
-}
 // problem of navier stokes computational model
 double * navier_stokes_ref(double * u, double u0, 
 const double dt, const double dx, 
 const double p, const double alpha, int length, double * model) {
     double * grad = (double *) malloc(sizeof(double) * length);
-    double adjusted_dx = dx * (calibrated_length / length);
+    double adjusted_dx = dx * double(calibrated_length) / length;
     var diff = 0.0;
     var vi = 0.0;
     var qty = 0.0;
@@ -76,7 +71,7 @@ const double p, const double alpha, int length, double * model) {
         t = (series_start + i * ( series_end - series_start ) / (length-1));
         grad[i] = estimated_gradient(t, index, length, prob, dim_constant, dt, estimate);
         model[i] = estimate;
-        units_interpolated = units_computed(&units[(int) floor(i*calibrated_length/length)], length, i);
+        units_interpolated = units_computed(&units[int(i*calibrated_length/length)], length, i);
         diff = (vi - v0) * units_interpolated;
         qty = diff/dt - v0 * diff/adjusted_dx; // force
         v0 = vi;

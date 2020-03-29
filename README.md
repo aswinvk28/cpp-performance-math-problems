@@ -2,9 +2,9 @@
 
 We take a segment of air of length `l`. Using the theory of Air Dynamics and Law of Diffusion, we find the discretised momentum conservation model evaluated from a velocity time series. 
 
-The process of working with the example is to execute the model within specified time by not compromising the accuracy of the model. This mdoel is developed using a benchmark model developed in Python.
+The process of working with the example is to execute the model within specified time by not compromising the accuracy of the model. This model is developed using a benchmark model developed in Python.
 
-The respository link for the benchmark model:
+The respository link for the benchmark model is provided below:
 
 [https://github.com/aswinvk28/cpp-performance-math-problems-benchmark](https://github.com/aswinvk28/cpp-performance-math-problems-benchmark)
 
@@ -26,6 +26,28 @@ to minimise the time shown in the repository, without affecting the accuracy of 
 
 # Accuracy Measurement
 
+```python
+
+double * navier_stokes_ref(double * u1, double u0, 
+const double dt, const double dx, 
+const double p, const double alpha, int length, double * model)
+
+```
+
+The implementation:
+
+```python
+
+double * navier_stokes(double * u2, double u0, 
+const double dt, const double dx, 
+const double p, const double alpha, int length, double * model)
+
+```
+
+The MAE (Mean Absolute Error) = abs(u2 - u1) / length
+
+# Precision Measurement
+
 [Error to Norm Ratio Explained](http://www.math.pitt.edu/~sussmanm/2071Spring08/lab05/index.html#TypesOfErrors)
 
 The Ratio of change of a value `Δx` to the value `x` is termed as: **relative solution error**
@@ -43,6 +65,8 @@ The Ratio of change of a value `Δx` to the value `x` is termed as: **relative s
                         k₂(A)       = || A ||₂ || A ||⁻¹
 
 ```
+
+
 
 # MOS QSR model
 

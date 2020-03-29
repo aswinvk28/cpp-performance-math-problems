@@ -51,8 +51,8 @@ std::string tpcc_string(double angle1, double angle2) {
 }
 
 // concordance of the estimated model, computational model using intervals to determine the tpcc
-double ModelConcordance(double * u, double * grad, int length, 
-const int start_index, const int end_index, const int norm, const int dx, 
+double ModelConcordance(double * u, double * grad,
+const int start_index, const int end_index, const int norm, const double dx, 
 std::vector<int>& vec, std::map<string, int>& tpcc_map, const float graddx = 1.0f) {
   double error = 0.0f;
   double value = 0.0f;
@@ -61,8 +61,8 @@ std::vector<int>& vec, std::map<string, int>& tpcc_map, const float graddx = 1.0
   var index1;
   var index2;
   for(int i = start_index; i < end_index; i++) {
-    index1 = loop_index((var) i, dx, length);
-    index2 = loop_index((var) (i+1), dx, length);
+    index1 = loop_index((var) i, dx, calibrated_length);
+    index2 = loop_index((var) (i+1), dx, calibrated_length);
     numerator = std::pow(grad[i] * graddx, norm);
     denominator = std::pow(u[i], norm);
     error += numerator;
@@ -90,17 +90,13 @@ std::vector<double> ModelPrecision(double * u, double * model) {
 }
 
 // reliability of the model in failure mode for Scaling 
-std::valarray<double> ModelReliability(std::vector<double> precision, int N) {
-  std::vector<double> additive(precision.size(),-1.0);
-  std::transform (precision.begin(), precision.end(), additive.begin(), precision.begin(), std::minus<double>());
-  std::valarray<double> values(precision.begin(), precision.end());
-  auto power = [](int N) {
-    return [=](double x) {
-      return pow(x,N);
-    }
+std::vector<double> ModelReliability(std::vector<double> precision, int N) {
+  #pragma omp simd
+  for(int i = 0; i < precision.size(); i++) {
+    precision[i] = (1 - precision[i]);
   }
-  std::valarray<double> values = values.apply(power(N));
-  return values;
+  std::for_each(precision.begin(), precision.end(), [N](double &x){ x = pow(x,N); });
+  return precision;
 }
 
 // residual error of the model in design with norm-2
@@ -118,10 +114,10 @@ const int start_index, const int end_index, const int norm) {
 // ./app --intervals 2 --iterations 7 --quantisation_factor 0.6 --condition_factor 2
 int main(int argc, const char** argv) {
 
-    CmdParserWithHelp   cmd( argc, argv);
+    CmdParserWithHelp   cmd( argc, argv );
     CmdOption<int>   intervals(
         cmd,
-        'intervals',
+        'i',
         "intervals",
         "",
         "Number of intervals as 2^{--intervals}",
@@ -129,7 +125,7 @@ int main(int argc, const char** argv) {
     );
     CmdOption<int>   num(
         cmd,
-        'iterations',
+        't',
         "iterations",
         "",
         "Number of iterations as 2^{--iterations} which must be gtreater than calibrated_length = 100",
@@ -137,7 +133,7 @@ int main(int argc, const char** argv) {
     );
     CmdOption<double>   qf(
         cmd,
-        'quantisation_factor',
+        'qf',
         "quantisation_factor",
         "",
         "Quantisation Factor input",
@@ -145,7 +141,7 @@ int main(int argc, const char** argv) {
     );
     CmdOption<int>   condition(
         cmd,
-        'condition_factor',
+        'cf',
         "condition_factor",
         "",
         "Condition Number Factor as power",
@@ -153,17 +149,17 @@ int main(int argc, const char** argv) {
     );
     cmd.parse();
 
-    const int nIntervals = 1 << intervals;
-    const int n;
+    const int nIntervals = 1 << intervals.getValue();
+    int n = 0;
 
-    if (num == -1) {
+    if (num.getValue() == -1) {
       n = length;
     } else {
-      n = 1 << num;
+      n = 1 << num.getValue();
     }
 
-    if (qf > 0) {
-      quantisation_factor = qf;
+    if (qf.getValue() > 0) {
+      quantisation_factor = qf.getValue();
     }
 
     // rescale length parameter from the input number of iterations
@@ -188,13 +184,13 @@ int main(int argc, const char** argv) {
     double * model = (double *) malloc(sizeof(double)*length);
 
     printf("\n\033[1mInterval parameters with nIntervals=%d\033[0m\n", nIntervals);
-    printf("\033[1m%5s %15s %15s %15s %15s %15s \t %2s  %2s  %2s  %2s  %2s  %2s  %2s  %2s %15s %15s\n", 
+    printf("\033[1m%5s %15s %15s %15s %15s %15s \t %2s  %2s  %2s  %2s  %2s  %2s  %2s  %2s %15s %15s %15s\n", 
     "Step", "Time, ms", "GSteps/s", "Concordance", "Stationary mode(s)", "Moving mode(s)", 
     __partition_names[0].c_str(),__partition_names[1].c_str(),
     __partition_names[2].c_str(),__partition_names[3].c_str(),
     __partition_names[4].c_str(),__partition_names[5].c_str(),
     __partition_names[6].c_str(),__partition_names[7].c_str(), 
-    "Precision", "Residual", "Raliability");
+    "Precision", "Residual", "Reliability");
     fflush(stdout);
 
     double time, dtime, f, df, * grad;
@@ -219,8 +215,8 @@ int main(int argc, const char** argv) {
             df += fpps*fpps;
         }
 
-        const int start_index = (int) a * length / nIntervals;
-        const int end_index = (int) (b-1) * length / nIntervals - 1;
+        const int start_index = int(a * length / nIntervals) + 1;
+        const int end_index = int((b-1) * length / nIntervals) - 1;
         std::vector<int> vec (2,0);
         std::map<string, int> tpcc_map;
 
@@ -228,19 +224,23 @@ int main(int argc, const char** argv) {
           tpcc_map[__partition_names[p]] = 0;
         }
 
-        const double concordance = ModelConcordance(u, grad, length, 
-        start_index, end_index, 1, vec, tpcc_map);
+        const double concordance = ModelConcordance(u, grad, 
+        start_index, end_index, 1, dx, vec, tpcc_map);
 
         std::vector<double> precision = ModelPrecision(u, &model[0]);
-        double precision_sum = std::reduce(std::execution::par, precision.begin(), precision.end());
+        double precision_sum = std::accumulate(precision.begin(), precision.end(), 0);
         // residual error calculated with norm-2 similar to condition number for 1 dimensional data
-        const double residual = ResidualError(u, length, start_index, end_index, condition);
+        const double residual = ResidualError(u, length, start_index, end_index, condition.getValue());
 
-        std::valarray<double> reliability = ModelReliability(precision, (int) length / calibrated_length);
-        double reliability_sum = std::reduce(std::execution::par, reliability.begin(), reliability.end());
+        std::vector<double> reliability = ModelReliability(precision, int(length / calibrated_length));
+        double reliability_sum = 0.0;
+        #pragma omp simd reduction(+:reliability_sum)
+        for(int i = 0; i < precision.size(); i++) {
+          reliability_sum += precision[i];
+        }
 
         // Output performance
-        printf("%5d %15.3f %15.8f %15.8e%s %15d %15d \t\t %d   %d   %d   %d   %d   %d   %d   %d %15.8f %15.8f %15.8f\n", 
+        printf("%5d %15.3f %15.8f%s %15.8f %15d %15d \t\t %d   %d   %d   %d   %d   %d   %d   %d %15.8f %15.8f %15.8f\n", 
         iInterval, tms, fpps, (iInterval<=skipIntervals?"*":"+"), 
         concordance, vec[0], vec[1], tpcc_map[__partition_names[0]], 
         tpcc_map[__partition_names[1]], tpcc_map[__partition_names[2]], 
@@ -256,6 +256,5 @@ int main(int argc, const char** argv) {
     printf("\033[1m%s\033[0m\n%8s   \033[42m%8.1f+-%.1f\033[0m   \033[42m%8.1f+-%.1f\033[0m\n",
         "Average performance:", "", time, dtime, f, df);
     printf("-----------------------------------------------------\n");
-    printf("* - warm-up, not included in average\n\n");
 
 }

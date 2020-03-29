@@ -28,7 +28,7 @@ set(INC_DIR
 include_directories (${CMAKE_CURRENT_SOURCE_DIR}/../autodiff ${INC_DIR})
 link_directories( ${LIB_DIR} )
 
-set (CMAKE_CXX_FLAGS "-fopenmp")
+set (CMAKE_CXX_FLAGS "-fopenmp -std=c++17")
 
 add_executable ( ${TARGET_NAME} main.cc worker.cc series.cc ${SOURCES} )
 target_link_libraries(${TARGET_NAME} ${LIB})
