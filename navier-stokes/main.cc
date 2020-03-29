@@ -60,7 +60,7 @@ std::vector<int>& vec, std::map<string, int>& tpcc_map, const float graddx = 1.0
   double denominator = 0.0f;
   var index1;
   var index2;
-  for(int i = start_index; i < end_index; i++) {
+  for(int i = start_index; i < end_index-1; i++) {
     index1 = loop_index((var) i, dx, calibrated_length);
     index2 = loop_index((var) (i+1), dx, calibrated_length);
     numerator = std::pow(grad[i] * graddx, norm);
@@ -72,7 +72,7 @@ std::vector<int>& vec, std::map<string, int>& tpcc_map, const float graddx = 1.0
     } else {
       vec[1] += 1;
     }
-    double angle1 = arg((double) index1, u[i], dx, grad[i] + (grad[i+1] - grad[i]) * dx * calibrated_length);
+    double angle1 = arg((double) index1, u[i], dx, grad[i] + (grad[i+1] - grad[i]) * dx);
     double angle2 = arg((double) index2, u[i+1], dx, grad[i+1]);
     std::string tpcc = tpcc_string(angle1, angle2);
     tpcc_map[tpcc] += 1;
@@ -83,7 +83,7 @@ std::vector<int>& vec, std::map<string, int>& tpcc_map, const float graddx = 1.0
 // error precision of the model in design
 std::vector<double> ModelPrecision(double * u, double * model) {
   std::vector<double> precision(length,0);
-  for(int i = 1; i < length; i++) {
+  for(int i = 1; i < length-1; i++) {
     precision[i] = abs(model[i] - u[i]) / abs(model[i]); // probability of failure
   }
   return precision;

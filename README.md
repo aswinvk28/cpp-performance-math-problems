@@ -10,11 +10,11 @@ The respository link for the benchmark model is provided below:
 
 ![eqn-navier](./navier-stokes/eqn-navier.png)
 
-# Performance Optimization Explanation
+# Performance Optimization
 
-[https://github.com/nscalo/cpp-performance-samples](https://github.com/nscalo/cpp-performance-samples)
+As given in these examples, [https://github.com/nscalo/cpp-performance-samples](https://github.com/nscalo/cpp-performance-samples)
 
-You can use:
+The parallisation techniques which can be used are:
 
     - Vectorization, or
     
@@ -22,9 +22,9 @@ You can use:
     
     - MPI
 
-to minimise the time shown in the repository, without affecting the accuracy of the model
+In order to minimise the time shown in the repository, without affecting the accuracy of the model, the reference function `navier_stokes_ref` compared with the implementation function `navier_stokes` must be optimized for parallel processing
 
-# Accuracy Measurement
+# Measurement of Accuracy
 
 ```python
 
@@ -66,20 +66,40 @@ The Ratio of change of a value `Δx` to the value `x` is termed as: **relative s
 
 ```
 
-
-
 # MOS QSR model
 
 The Moving or Stationary model for Navier Stokes relation is determined by Force term.
 
-##  IF   ρ * ( δu / δt ) > quantisation factor   --->       Moving, else Stationary
+```mathematica
 
-Original MOS model in QSR lib is based on distance vector, L2 norm, please checkout here
+IF   ρ * ( δu / δt ) > quantisation factor   --->       Moving, else Stationary
 
-[https://qsrlib.readthedocs.io/en/latest/](https://qsrlib.readthedocs.io/en/latest/)
+```
+
+Original MOS model in QSR lib is based on distance vector, L2 norm, please checkout here [https://qsrlib.readthedocs.io/en/latest/](https://qsrlib.readthedocs.io/en/latest/). 
 
 # TPCC QSR model
 
 The Ternary Point Configuration Calculus (TPCC) model for Navier Stokes relation is determined by the potential term.
 
-##  F  and  ( δF / δx ) projected to determine  --->        Partitions ( "lb", "bl", "fl", "lf", "rf", "fr", "br", "rb" )
+```mathematica
+
+F  and  ( δF / δx ) projected to determine  --->        Partitions ( "lb", "bl", "fl", "lf", "rf", "fr", "br", "rb" )
+
+```
+
+# Reliability of the model
+
+```mathematica
+
+Reliability = ( 1 - probability_of_failure ) ^ Number of experiments
+
+```
+
+The reliability of the model refers to scaling up of the initial model from a length of:
+
+`length = 100` to `length = N`
+
+# Model Concordance with QSR
+
+The chosen QSR model here is TPCC. TPCC allocates points in a polar space based on distance metric (L2 norm). The concordance of our model is performed with the original calibrated model and is irrespective of model scaling. 
