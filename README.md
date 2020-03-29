@@ -107,9 +107,3 @@ The reliability of the model refers to scaling up of the initial model from a le
 # Model Concordance with QSR
 
 The chosen QSR model here is TPCC. TPCC allocates points in a polar space based on distance metric (L2 norm). The concordance of our model is performed with the original calibrated model and is irrespective of model scaling. 
-
-# Error Function
-
-Estimated vs Y value of the trained model looks as the serie function given below:
-
-![](./error-function.png)
