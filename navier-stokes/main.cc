@@ -6,7 +6,6 @@
 #include <functional>
 #include <valarray>
 #include <algorithm>
-#include <array>
 #include <map>
 #include <cmath>
 #include <cstdio>
@@ -81,25 +80,25 @@ std::vector<int>& vec, std::map<string, int>& tpcc_map, const float graddx = 1.0
 }
 
 // error precision of the model in design
-std::vector<double> ModelPrecision(double * u, double * model, const int start_index = 0, const int end_index = 0) {
+void ModelPrecision(double * u, double * model, std::vector<double>& precision,
+const int start_index = 0, const int end_index = 0, const int multiplier_value = 1) {
   int start = start_index ? start_index : 1;
   int end = end_index ? end_index-1 : length-1;
-  std::vector<double> precision(end-start+1,0.0);
   for(int i = start; i < end; i++) {
-    precision[i-start] = abs(model[i] - u[i]);
+    precision[i-start] = abs(model[i] - u[i]) * multiplier_value;
   }
-  return precision;
 }
 
 // reliability of the model in failure mode for Scaling 
-std::vector<double> ModelReliability(double * model, std::vector<double> precision, int N, const int start_index = 0, const int end_index = 0) {
+std::vector<double> ModelReliability(double * model, std::vector<double> precision, int N, 
+const int start_index = 0, const int end_index = 0, const int multiplier_value = 1) {
   int start = start_index ? start_index : 1;
   int end = end_index ? end_index-1 : length-1;
-  #pragma omp simd
-  for(int i = start; i < end; i++) {
-    precision[i-start] = (1 - precision[i-start]/model[i]); // probability of failure
-  }
-  std::for_each(precision.begin(), precision.end(), [N](double &x){ x = pow(x,N); });
+  int index = 0;
+  std::for_each(precision.begin(), precision.end(), [N, multiplier_value, model, &index](double &x) {
+    x = std::pow((1-x/multiplier_value),N);
+    index++;
+  });
   return precision;
 }
 
@@ -151,6 +150,14 @@ int main(int argc, const char** argv) {
         "Condition Number Factor as power",
         2
     );
+    CmdOption<int>   multiplier(
+        cmd,
+        'm',
+        "multiplier",
+        "",
+        "Multiplier for precision",
+        1
+    );
     cmd.parse();
 
     const int nIntervals = 1 << intervals.getValue();
@@ -198,9 +205,7 @@ int main(int argc, const char** argv) {
     fflush(stdout);
 
     double time, dtime, f, df, * grad, precision_sum, reliability_sum;
-    std::vector<double> precision;
-    std::vector<double> reliability;
-
+    
     for (int iInterval = 1; iInterval <= nIntervals; iInterval++) {
 
         const double a = double(iInterval - 1);
@@ -233,12 +238,20 @@ int main(int argc, const char** argv) {
         const double concordance = ModelConcordance(u, grad, 
         start_index, end_index, 1, dx, vec, tpcc_map);
 
-        precision = ModelPrecision(u, &model[0], start_index, end_index);
+        int start = start_index ? start_index : 1;
+        int end = end_index ? end_index-1 : length-1;
+
+        std::vector<double> precision (end-start,0.0);
+        std::vector<double> reliability (end-start,0.0);
+
+        ModelPrecision(u, &model[0], precision, 
+        start_index, end_index, multiplier.getValue());
         precision_sum = std::accumulate(precision.begin(), precision.end(), 0);
         // residual error calculated with norm-2 similar to condition number for 1 dimensional data
         const double residual = ResidualError(u, length, start_index, end_index, condition.getValue());
 
-        reliability = ModelReliability(&model[0], precision, int(length / calibrated_length), start_index, end_index);
+        reliability = ModelReliability(&model[0], precision, int(length / calibrated_length), 
+        start_index, end_index, multiplier.getValue());
         reliability_sum = std::accumulate(reliability.begin(), reliability.end(), 0);
 
         // Output performance
@@ -249,18 +262,22 @@ int main(int argc, const char** argv) {
         tpcc_map[__partition_names[3]], tpcc_map[__partition_names[4]], 
         tpcc_map[__partition_names[5]], tpcc_map[__partition_names[6]], 
         tpcc_map[__partition_names[7]], 
-        precision_sum/(precision.size()-2), residual, 
-        reliability_sum/(reliability.size()-2));
+        precision_sum/precision.size(), residual, 
+        reliability_sum/reliability.size());
         fflush(stdout);
     }
 
-    precision = ModelPrecision(u, &model[0]);
+    std::vector<double> precision (length-2,0.0);
+    std::vector<double> reliability (length-2,0.0);
+
+    ModelPrecision(u, &model[0], precision, 0, 0, multiplier.getValue());
     precision_sum = std::accumulate(precision.begin(), precision.end(), 0);
-    reliability = ModelReliability(&model[0], precision, int(length / calibrated_length));
+    reliability = ModelReliability(&model[0], precision, 
+    int(length / calibrated_length), multiplier.getValue());
     reliability_sum = std::accumulate(reliability.begin(), reliability.end(), 0);
 
-    printf("Precision: %15.12f\n", precision_sum/(precision.size()-2));
-    printf("Reliability: %15.12f\n", reliability_sum/(reliability.size()-2));
+    printf("Precision: %15.12f\n", precision_sum/precision.size());
+    printf("Reliability: %15.12f\n", reliability_sum/reliability.size());
 
     Stats(time, dtime, nIntervals);
     Stats(f, df, nIntervals);

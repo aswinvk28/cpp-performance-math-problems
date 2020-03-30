@@ -1,3 +1,9 @@
+# C++ computational model with QSR and Autodiff (Autodifferentiation)
+
+The computational model used in this project to demonstrate the capabilities of performance optimization is the Navier Stokes momentum conservation model adapted from Monte Carlo diffusion as a dispersion relation. 
+
+The code repository uses **[Docker](https://www.docker.com/)** and **[Autodiff](https://github.com/autodiff/autodiff)** packages. 
+
 # Navier Stokes Momentum Conservation Model
 
 We take a segment of air of length `l`. Using the theory of Air Dynamics and Law of Diffusion, we find the discretised momentum conservation model evaluated from a velocity time series. 
