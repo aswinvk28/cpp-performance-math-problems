@@ -22,9 +22,9 @@ using namespace std;
 
 int length = 100;
 const int skipIntervals = 3; // Skip first iteration as warm-up
-double quantisation_factor = 3.487607467973763e-05; // est.max() * 2/3
 const double dt = 1e-3;
 const double dx = 1e-6;
+double quantisation_factor = 3.487607467973763e-05*calibrated_length*dx; // est.max() * 2/3
 
 const std::array<std::string,8> __partition_names = {
   string("lb"),string("bl"),string("fl"),string("lf"),
@@ -204,7 +204,7 @@ int main(int argc, const char** argv) {
     "Precision", "Residual", "Reliability");
     fflush(stdout);
 
-    double time, dtime, f, df, * grad, precision_sum, reliability_sum;
+    double time, dtime, f, df, * grad, precision_sum = 0.0, reliability_sum = 0.0;
     
     for (int iInterval = 1; iInterval <= nIntervals; iInterval++) {
 
@@ -246,16 +246,20 @@ int main(int argc, const char** argv) {
 
         ModelPrecision(u, &model[0], precision, 
         start_index, end_index, multiplier.getValue());
-        precision_sum = std::accumulate(precision.begin(), precision.end(), 0);
+        std::for_each(precision.begin(), precision.end(), [&precision_sum](double &p) {
+          precision_sum += p;
+        });
         // residual error calculated with norm-2 similar to condition number for 1 dimensional data
         const double residual = ResidualError(u, length, start_index, end_index, condition.getValue());
 
         reliability = ModelReliability(&model[0], precision, int(length / calibrated_length), 
         start_index, end_index, multiplier.getValue());
-        reliability_sum = std::accumulate(reliability.begin(), reliability.end(), 0);
+        std::for_each(reliability.begin(), reliability.end(), [&reliability_sum](double &r) {
+          reliability_sum += r;
+        });
 
         // Output performance
-        printf("%5d %15.3f %15.8f%s %15.8f %15d %15d \t\t %d   %d   %d   %d   %d   %d   %d   %d %15.12f %15.12f %15.12f\n", 
+        printf("%5d %15.3f %15.8f%s %15.8f %15d %15d \t\t %d   %d   %d   %d   %d   %d   %d   %d %15.6e %15.6e %15.6e\n", 
         iInterval, tms, fpps, (iInterval<=skipIntervals?"*":"+"), 
         concordance, vec[0], vec[1], tpcc_map[__partition_names[0]], 
         tpcc_map[__partition_names[1]], tpcc_map[__partition_names[2]], 
@@ -271,13 +275,19 @@ int main(int argc, const char** argv) {
     std::vector<double> reliability (length-2,0.0);
 
     ModelPrecision(u, &model[0], precision, 0, 0, multiplier.getValue());
-    precision_sum = std::accumulate(precision.begin(), precision.end(), 0);
+    precision_sum = 0.0;
+    std::for_each(precision.begin(), precision.end(), [&precision_sum](double &p) {
+      precision_sum += p;
+    });
     reliability = ModelReliability(&model[0], precision, 
     int(length / calibrated_length), multiplier.getValue());
-    reliability_sum = std::accumulate(reliability.begin(), reliability.end(), 0);
+    reliability_sum = 0.0;
+    std::for_each(reliability.begin(), reliability.end(), [&reliability_sum](double &r) {
+      reliability_sum += r;
+    });
 
-    printf("Precision: %15.12f\n", precision_sum/precision.size());
-    printf("Reliability: %15.12f\n", reliability_sum/reliability.size());
+    printf("Precision: %15.8e\n", precision_sum/precision.size());
+    printf("Reliability: %15.8f\n", reliability_sum/reliability.size());
 
     Stats(time, dtime, nIntervals);
     Stats(f, df, nIntervals);

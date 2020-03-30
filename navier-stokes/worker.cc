@@ -52,7 +52,7 @@ double units_computed(const double * units, int length, int i, const double dx) 
     double fragment_length = double(length) / calibrated_length;
     double spline_l = double(i - int(i/fragment_length)*fragment_length) / fragment_length;
     double spline_r = 1 - spline_l;
-    return (spline_l * units[1] + spline_r * units[0]) * (length*dx);
+    return (spline_l * units[1] + spline_r * units[0]) * (calibrated_length*dx);
 }
 // interpolating using np.linspace
 var loop_index(var v, const double dx, int length) {
