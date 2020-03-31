@@ -90,7 +90,7 @@ Original MOS model in QSR lib is based on distance vector, L2 norm, please check
 
 # TPCC QSR model
 
-The Ternary Point Configuration Calculus (TPCC) model for Navier Stokes relation is determined by the potential term.
+The Ternary Point Configuration Calculus (TPCC) model for Navier Stokes relation is determined by the intervals.
 
 ```mathematica
 
