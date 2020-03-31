@@ -1,4 +1,8 @@
-COMMAND="./app --intervals 3 --iterations 7 --condition_factor 2 --multiplier 1000000 --quantisation_factor 0.00001"
+COMMAND="./app \
+--intervals 4 \
+--iterations 8 \
+--condition_factor 2 \
+--multiplier 1"
 
 echo -e "Building docker image\r"
 IMAGE_EXISTS=$(sudo docker inspect cpp_math_problems --format={{.Id}})

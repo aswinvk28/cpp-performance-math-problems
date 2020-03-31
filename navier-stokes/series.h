@@ -10,6 +10,8 @@ using namespace std;
 #include <autodiff/reverse.hpp>
 using namespace autodiff;
 
+#define calibrated_length 100
+
 double units_per_cell(float lx, int length);
 
 // The time series function which is t ^ 5

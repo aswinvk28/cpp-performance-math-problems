@@ -2,8 +2,10 @@
 
 // power series coefficients theta1 * x + theta2 * x^2 + theta3 * x^3 + ...
 double coef[] = {
-    2.23021253e-03, -1.72195385e-04,  1.28483935e-05, -5.62817685e-07,
-    1.44104377e-08, -2.12475897e-10,  1.66951848e-12, -5.40886780e-15
+  1.801559466450699e-07, -1.5454259212518823e-08,
+  1.197345374981733e-09, -5.345555361073733e-11,
+  1.3845833808638659e-12, -2.0574243813871034e-14,
+  1.6256390453625797e-16, -5.28932370890908e-19
 };
 // The time series function which is t ^ 5
 var time_series(var t) {
@@ -24,7 +26,7 @@ var power_series(var t) {
 // element-wise product terms formula for navier stokes result which represents force
 var estimated(var lx, var tsgrad, int length, const float p, 
 const float dim_constant, double dt) {
-    return (1e1 * (1 - lx * length)) * p * dim_constant * tsgrad;
+    return (1e11 * (1 - lx / length)) * p * dim_constant * tsgrad;
 }
 // gradient of force term
 double estimated_gradient(var t, var lx, int length, const float prob, 

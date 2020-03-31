@@ -11,8 +11,6 @@ using namespace std;
 #include <autodiff/reverse.hpp>
 using namespace autodiff;
 
-#define calibrated_length 100
-
 var loop_index(var v, const double dx, int length);
 double velocity_computed(double u0, double x, double p, double alpha, int length);
 double * navier_stokes_ref(double * u, double u0, 

@@ -3,12 +3,12 @@
 using namespace std;
 using namespace autodiff;
 
-const float series_end = 2.0;
-const float series_start = 0.0;
-const float units_end = 1.0;
-const float units_start = 0.0;
+const float series_end = 0.3f;
+const float series_start = 0.0f;
+const float units_end = 1.0f;
+const float units_start = 0.0f;
 const float prob = 0.01f;
-const float dim_constant = 0.01f;
+const float dim_constant = 0.1f;
 
 // the units per cell scale used for computing navier-stokes
 const double units[] = {
@@ -52,7 +52,7 @@ double units_computed(const double * units, int length, int i, const double dx) 
     double fragment_length = double(length) / calibrated_length;
     double spline_l = double(i - int(i/fragment_length)*fragment_length) / fragment_length;
     double spline_r = 1 - spline_l;
-    return (spline_l * units[1] + spline_r * units[0]) * (calibrated_length*dx);
+    return (spline_l * units[1] + spline_r * units[0]);
 }
 // interpolating using np.linspace
 var loop_index(var v, const double dx, int length) {
@@ -60,29 +60,29 @@ var loop_index(var v, const double dx, int length) {
 }
 // interpolating using linear formula: u0 - xcoord * prob / alpha * length
 var velocity_computed(double u0, var x, double p, double alpha, int length) {
-    return u0 - x * p / alpha * length;
+    return u0 - x * p / alpha * calibrated_length;
 }
 // problem of navier stokes computational model
 double * navier_stokes_ref(double * u, double u0, 
 const double dt, const double dx, 
 const double p, const double alpha, int length, double * model) {
     double * grad = (double *) malloc(sizeof(double) * length);
-    double adjusted_dx = dx * double(calibrated_length) / length;
     var diff = 0.0;
     var vi = 0.0;
     var qty = 0.0;
     var v0 = u0;
-    var t;
+    var t, lx;
     double estimate, units_interpolated;
     for (int i = 0; i < length; i++) {
-        var index = loop_index((var) i, adjusted_dx, length);
+        var index = loop_index((var) i, dx, length);
+        lx = i;
         vi = velocity_computed(u0, index, p, alpha, length);
-        t = (series_start + i * ( series_end - series_start ) / (length-1));
-        grad[i] = estimated_gradient(t, index, length, prob, dim_constant, dt, estimate);
+        t = i * (series_end - series_start) / (length-1);
+        grad[i] = estimated_gradient(t, lx, length, prob, dim_constant, dt, estimate);
         model[i] = estimate;
         units_interpolated = units_computed(&units[int(i*calibrated_length/length)], length, i, dx);
         diff = (vi - v0) * units_interpolated;
-        qty = diff/dt - v0 * diff/adjusted_dx; // force
+        qty = diff/dt - vi * diff/dx; // force
         v0 = vi;
         u[i] = (double) qty;
     }

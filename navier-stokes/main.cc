@@ -66,7 +66,7 @@ std::vector<int>& vec, std::map<string, int>& tpcc_map, const float graddx = 1.0
     denominator = std::pow(u[i], norm);
     error += numerator;
     value += denominator;
-    if ((denominator <= std::pow(quantisation_factor, norm)) && grad > 0) {
+    if ((denominator <= std::pow(quantisation_factor, norm)) && grad[i] > 0) {
       vec[0] += 1;
     } else {
       vec[1] += 1;
@@ -195,7 +195,7 @@ int main(int argc, const char** argv) {
     double * model = (double *) malloc(sizeof(double)*length);
 
     printf("\n\033[1mInterval parameters with nIntervals=%d\033[0m\n", nIntervals);
-    printf("\033[1m%5s %15s %15s %15s %15s %15s \t %2s  %2s  %2s  %2s  %2s  %2s  %2s  %2s %15s %15s %15s\n", 
+    printf("\033[1m%5s %15s %15s %20s %20s %15s \t %2s  %2s  %2s  %2s  %2s  %2s  %2s  %2s %15s %15s %15s\n", 
     "Step", "Time, ms", "GSteps/s", "Concordance", "Stationary mode(s)", "Moving mode(s)", 
     __partition_names[0].c_str(),__partition_names[1].c_str(),
     __partition_names[2].c_str(),__partition_names[3].c_str(),
@@ -259,7 +259,7 @@ int main(int argc, const char** argv) {
         });
 
         // Output performance
-        printf("%5d %15.3f %15.8f%s %15.8f %15d %15d \t\t %d   %d   %d   %d   %d   %d   %d   %d %15.6e %15.6e %15.6e\n", 
+        printf("%5d %15.3f %15.8f%s %19.5f %15d %15d \t\t %d   %d   %d   %d   %d   %d   %d   %d %15.6e %15.6e %15.6e\n", 
         iInterval, tms, fpps, (iInterval<=skipIntervals?"*":"+"), 
         concordance, vec[0], vec[1], tpcc_map[__partition_names[0]], 
         tpcc_map[__partition_names[1]], tpcc_map[__partition_names[2]], 
