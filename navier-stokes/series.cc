@@ -31,7 +31,7 @@ const float dim_constant, double dt) {
 // gradient of force term
 double estimated_gradient(var t, var lx, int length, const float prob, 
 const float dim_constant, double dt, double &estimate) {
-    var tsgrad = power_series(t);
+    var tsgrad = power_series(t) + 3.8328476732046615e-12;
     var u = estimated(lx, tsgrad, length, prob, dim_constant, dt);  // the output variable u
     estimate = (double) u;
     auto [u1, u2] = derivatives(u, wrt(lx, tsgrad)); // evaluate the derivative of u with respect to x

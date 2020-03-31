@@ -108,7 +108,7 @@ const int start_index, const int end_index, const int norm) {
   double sum = 0.0;
   for(int i = start_index; i < end_index-1; i++) {
     double error = std::pow(u[i+1] - u[i], norm);
-    double value = std::pow((u[i+1] + u[i]) / 2, norm);
+    double value = (u[i+1] + u[i]) / 2;
     sum += error/value;
   }
   return sum;
