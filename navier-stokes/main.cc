@@ -53,8 +53,7 @@ std::string tpcc_string(double angle1, double angle2) {
 double ModelConcordance(double * u, double * grad,
 const int start_index, const int end_index, const int norm, const double dx, 
 std::vector<int>& vec, std::map<string, int>& tpcc_map, const float graddx = 1.0f) {
-  double error = 0.0f;
-  double value = 0.0f;
+  double sum = 0.0f;
   double numerator = 0.0f;
   double denominator = 0.0f;
   var index1;
@@ -64,8 +63,7 @@ std::vector<int>& vec, std::map<string, int>& tpcc_map, const float graddx = 1.0
     index2 = loop_index((var) (i+1), dx, calibrated_length);
     numerator = std::pow(grad[i] * graddx, norm);
     denominator = std::pow(u[i], norm);
-    error += numerator;
-    value += denominator;
+    sum += numerator / denominator;
     if ((denominator <= std::pow(quantisation_factor, norm)) && grad[i] > 0) {
       vec[0] += 1;
     } else {
@@ -76,7 +74,7 @@ std::vector<int>& vec, std::map<string, int>& tpcc_map, const float graddx = 1.0
     std::string tpcc = tpcc_string(angle1, angle2);
     tpcc_map[tpcc] += 1;
   }
-  return error/value;
+  return sum;
 }
 
 // error precision of the model in design
@@ -259,7 +257,7 @@ int main(int argc, const char** argv) {
         });
 
         // Output performance
-        printf("%5d %15.3f %15.8f%s %19.5f %15d %15d \t\t %d   %d   %d   %d   %d   %d   %d   %d %15.6e %15.6e %15.6e\n", 
+        printf("%5d %15.3f %15.8f%s %19.5e %15d %15d \t\t %d   %d   %d   %d   %d   %d   %d   %d %15.6e %15.6e %15.6e\n", 
         iInterval, tms, fpps, (iInterval<=skipIntervals?"*":"+"), 
         concordance, vec[0], vec[1], tpcc_map[__partition_names[0]], 
         tpcc_map[__partition_names[1]], tpcc_map[__partition_names[2]], 

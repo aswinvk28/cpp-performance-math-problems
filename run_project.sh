@@ -1,8 +1,9 @@
 COMMAND="./app \
---intervals 4 \
---iterations 8 \
+--intervals 3 \
+--iterations 7 \
 --condition_factor 2 \
---multiplier 1"
+--multiplier 1 \
+--quantisation_factor 2e-2"
 
 echo -e "Building docker image\r"
 IMAGE_EXISTS=$(sudo docker inspect cpp_math_problems --format={{.Id}})
@@ -19,7 +20,5 @@ EMPTY_STR=""
 CONTAINER_ID=$(sudo docker ps --quiet)
 
 sudo docker exec "$CONTAINER_ID" bash -c "cd /repo/navier-stokes/build && \
-        rm -rf * *.* && \
-        cmake .. && make all && \
         echo -e '\r\n${COMMAND}\r\n' && \
         $COMMAND"
