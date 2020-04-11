@@ -4,10 +4,13 @@ COMMAND="./app \
 --condition_factor 2 \
 --multiplier 1"
 
+REBUILD=$1
+REPO=$2
+
 echo -e "Building docker image\r"
 IMAGE_EXISTS=$(sudo docker inspect cpp_math_problems --format={{.Id}})
-if [ -z "$IMAGE_EXISTS" ]; then
-    sudo docker build -t cpp_math_problems .
+if [ -z "$IMAGE_EXISTS" ] || [ "$REBUILD" == "rebuild" ]; then
+    sudo docker --build_arg REPOSITORY_LINK="$REPO" build -t cpp_math_problems .
 fi
 
 echo -e "Building and running app..\r"
@@ -19,8 +22,9 @@ EMPTY_STR=""
 CONTAINER_ID=$(sudo docker ps -q)
 echo -e "$CONTAINER_ID\r"
 
-sudo docker exec "$CONTAINER_ID" bash -c "cd /repo/navier-stokes/build && \
-        rm -rf * *.* && cmake .. && make all && \
-        echo -e '\r\n${COMMAND}\r\n' && \
-        $COMMAND"
+sudo docker exec "$CONTAINER_ID" bash -c "mkdir -p /opt/navier-stokes/build && \
+    cd /opt/navier-stokes/build && \
+    rm -rf * *.* && cmake -DAUTODIFF=/opt/autodiff .. && make all && \
+    echo -e '\r\n${COMMAND}\r\n' && \
+    $COMMAND"
 

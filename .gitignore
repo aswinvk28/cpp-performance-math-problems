@@ -4,3 +4,4 @@ build/
 *.npy
 *.ipynb
 navier-stokes/build/
+autodiff/
